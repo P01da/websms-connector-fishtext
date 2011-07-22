@@ -32,15 +32,16 @@ import android.preference.PreferenceManager;
 import de.ub0r.android.websms.connector.common.Connector;
 import de.ub0r.android.websms.connector.common.ConnectorCommand;
 import de.ub0r.android.websms.connector.common.ConnectorSpec;
+import de.ub0r.android.websms.connector.common.ConnectorSpec.SubConnectorSpec;
 import de.ub0r.android.websms.connector.common.Log;
 import de.ub0r.android.websms.connector.common.Utils;
 import de.ub0r.android.websms.connector.common.WebSMSException;
-import de.ub0r.android.websms.connector.common.ConnectorSpec.SubConnectorSpec;
 
 /**
  * AsyncTask to manage IO to fishtext.com API.
  * 
  * @author flx
+ * @author Fintan Fairmichael
  */
 public class ConnectorFishtext extends Connector {
 	/** Tag for output. */
@@ -89,7 +90,7 @@ public class ConnectorFishtext extends Connector {
 		final String name = context.getString(R.string.connector_fishtext_name);
 		ConnectorSpec c = new ConnectorSpec(name);
 		c.setAuthor(// .
-				context.getString(R.string.connector_fishtext_author));
+		context.getString(R.string.connector_fishtext_author));
 		c.setAdUnitId(AD_UNITID);
 		c.setBalance(null);
 		c.setCapabilities(ConnectorSpec.CAPABILITIES_UPDATE
@@ -181,10 +182,8 @@ public class ConnectorFishtext extends Connector {
 			final int h = htmlText.indexOf("</p>", j);
 			if (h > 0) {
 				String b = htmlText.substring(j + 3, h);
-				if (b.startsWith("&euro;")) {
-					b = b.substring(6) + "\u20AC";
-				}
-				b.replaceAll("&pound; *", "\u00A3");
+				b = b.replaceAll("&pound;", "\u00A3");
+				b = b.replaceAll("&euro;", "\u20AC");
 				Log.d(TAG, "balance: " + b);
 				this.getSpec(context).setBalance(b);
 			}
