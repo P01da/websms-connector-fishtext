@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License along with
  * this program; If not, see <http://www.gnu.org/licenses/>.
  */
-package de.ub0r.android.websms.connector.fishtext;
+package com.fairmichael.fintan.websms.connector.fishtext;
 
 import java.io.IOException;
 import java.net.HttpURLConnection;

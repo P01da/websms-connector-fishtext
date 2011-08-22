@@ -16,28 +16,12 @@
  * You should have received a copy of the GNU General Public License along with
  * this program; If not, see <http://www.gnu.org/licenses/>.
  */
-package de.ub0r.android.websms.connector.fishtext;
-
-import android.os.Bundle;
-import android.preference.PreferenceActivity;
 
 /**
- * Preferences.
+ * WebSMS Connector: Fishtext. Fishtext connector deployed as separate apk.
  * 
+ * @version 3.0
  * @author flx
  */
-public final class Preferences extends PreferenceActivity {
-	/** Preference key: enabled. */
-	static final String PREFS_ENABLED = "enable_fishtext";
-	/** Preference's name: user's password. */
-	static final String PREFS_PASSWORD = "password_fishtext";
+package com.fairmichael.fintan.websms.connector.fishtext;
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	protected void onCreate(final Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		this.addPreferencesFromResource(R.xml.connector_fishtext_prefs);
-	}
-}
