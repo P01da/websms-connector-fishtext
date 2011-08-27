@@ -18,7 +18,7 @@
 	-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	package="com.fairmichael.fintan.websms.connector.fishtext"
-	android:versionName="1.4.0" android:versionCode="1200">
+	android:versionName="1.5.0" android:versionCode="1210">
 	<application android:label="@string/app_name" android:icon="@drawable/icon">
 
 		<!--

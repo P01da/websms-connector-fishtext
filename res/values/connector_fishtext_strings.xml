@@ -18,13 +18,13 @@
 	-->
 <resources>
 	<string name="app_name">WebSMS Connector: fishtext</string>
-	<string name="app_version">1.3.2</string>
-	<string name="connector_fishtext_author">Felix Bechstein &lt;f@ub0r.de&gt;</string>
+	<string name="app_version">1.5.0</string>
+	<string name="connector_fishtext_author">Fintan Fairmichael</string>
 	<string name="connector_fishtext_name">fishtext</string>
 	<string name="enable_fishtext">Enable fishtext</string>
 	<string name="settings_fishtext">Preferences - fishtext</string>
 	<string name="partner_fishtext_hint">Create new fishtext.de account</string>
-	<string name="partner_fishtext_url">http://www.fishtext.de/?ref=tzil5PslxBSLhluFQknvjA==</string>
+	<string name="partner_fishtext_url">http://www.fishtext.com/</string>
 	<string name="use_default_for_login_">Login with default</string>
 	<string name="use_default_for_login_hint">Use default number for login.</string>
 </resources>

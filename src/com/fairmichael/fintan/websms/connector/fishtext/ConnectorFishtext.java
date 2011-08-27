@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011 Felix Bechstein
+ * Copyright (C) 2010-2011 Fintan Fairmichael, Felix Bechstein
  * 
  * This file is part of WebSMS.
  * 
@@ -19,10 +19,10 @@
 package com.fairmichael.fintan.websms.connector.fishtext;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 
 import android.content.Context;
@@ -38,291 +38,193 @@ import de.ub0r.android.websms.connector.common.Utils;
 import de.ub0r.android.websms.connector.common.WebSMSException;
 
 /**
- * AsyncTask to manage IO to fishtext.com API.
+ * Connector for sending texts via fishtext.com.
  * 
  * @author flx
  * @author Fintan Fairmichael
  */
 public class ConnectorFishtext extends Connector {
-	/** Tag for output. */
-	private static final String TAG = "fishtext";
-	/** Google's ad unit id. */
-	private static final String AD_UNITID = "a14dd50c927d383";
+  /** Logging tag. */
+  static final String TAG = "fishtext";
+  /** Google's ad unit id. */
+  private static final String AD_UNIT_ID = "a14dd50c927d383";
+  /** Useragent for http communication. */
+  static final String USER_AGENT = "Mozilla/5.0 (Windows; U; " + "Windows NT 5.1; ko; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (.NET CLR 3.5.30729)";
+  /** Preference name for using default number as login. */
+  private static final String PREFS_LOGIN_WTIH_DEFAULT = "login_with_default";
 
-	/** Preference's name: Use default number for login. */
-	private static final String PREFS_LOGIN_WTIH_DEFAULT = "login_with_default";
+  /** Login URL. */
+  private static final String LOGIN_URL = "https://www.fishtext.com/cgi-bin/account";
+  /** Login Referrer */
+  private static final String LOGIN_REFERRER = "https://www.fishtext.com/cgi-bin/mobi/account";
+  /** Get Balance URL */
+  private static final String GET_BALANCE_URL = "https://www.fishtext.com/cgi-bin/mobi/getBalance.cgi";
+  /** Send message page URL */
+  private static final String SEND_MESSAGE_PAGE_URL = "https://www.fishtext.com/cgi-bin/mobi/sendMessage.cgi";
+  /** Send SMS URL */
+  private static final String SEND_SMS_URL = "https://www.fishtext.com/SendSMS/SendSMS";
 
-	/** Fishtext URL: login. */
-	private static final String URL_LOGIN = // .
-	"https://www.fishtext.com/cgi-bin/account";
-	/** Fishtext URL: presend. */
-	private static final String URL_PRESEND = // .
-	"https://www.fishtext.com/cgi-bin/ajax/sendMessage.cgi";
-	/** Fishtext URL: send. */
-	private static final String URL_SEND = // .
-	"https://www.fishtext.com/SendSMS/SendSMS";
+  /** Used encoding. */
+  static final String ENCODING = "ISO-8859-15";
 
-	/** Check for balance. */
-	private static final String CHECK_BALANCE = "Current balance:";
-	/** Check for presend. */
-	private static final String CHECK_PRESEND = "messagelargeinput";
-	/** Check for sent. */
-	private static final String CHECK_SENT = "Message sent";
+  /** Pattern for extracting the balance from getBalance response */
+  private static final Pattern LOGGED_IN_BALANCE = Pattern.compile("^(.*?)(\\d{1,}\\.\\d{1,})");
+  /** Pattern for extracting the message id from the send message page */
+  private static final Pattern MESSAGE_ID = Pattern.compile("<textarea class=\"messagelargeinput\" name=\"(\\w+)\" id=\"message\"");
 
-	/** Number of vars pushed at login. */
-	private static final int NUM_VARS_LOGIN = 4;
-	/** Number of vars pushed at send. */
-	private static final int NUM_VARS_SEND = 6;
+  @Override
+  public final ConnectorSpec initSpec(final Context context) {
+    final String name = context.getString(R.string.connector_fishtext_name);
+    ConnectorSpec c = new ConnectorSpec(name);
+    c.setAuthor(context.getString(R.string.connector_fishtext_author));
+    c.setAdUnitId(AD_UNIT_ID);
+    c.setBalance(null);
+    c.setCapabilities(ConnectorSpec.CAPABILITIES_UPDATE | ConnectorSpec.CAPABILITIES_SEND | ConnectorSpec.CAPABILITIES_PREFS);
+    c.addSubConnector("fishtext", c.getName(), SubConnectorSpec.FEATURE_MULTIRECIPIENTS);
+    return c;
+  }
 
-	/** HTTP Useragent. */
-	private static final String TARGET_AGENT = "Mozilla/5.0 (Windows; U; "
-			+ "Windows NT 5.1; ko; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 "
-			+ "(.NET CLR 3.5.30729)";
+  @Override
+  public final ConnectorSpec updateSpec(final Context context, final ConnectorSpec connectorSpec) {
+    final SharedPreferences p = PreferenceManager.getDefaultSharedPreferences(context);
+    if (p.getBoolean(Preferences.PREFS_ENABLED, false)) {
+      if (p.getString(Preferences.PREFS_PASSWORD, "").length() > 0) {
+        connectorSpec.setReady();
+      } else {
+        connectorSpec.setStatus(ConnectorSpec.STATUS_ENABLED);
+      }
+    } else {
+      connectorSpec.setStatus(ConnectorSpec.STATUS_INACTIVE);
+    }
+    return connectorSpec;
+  }
 
-	/** Used encoding. */
-	private static final String ENCODING = "ISO-8859-15";
+  /**
+   * Test whether we're logged in
+   * 
+   * @param context
+   * @return
+   */
+  private boolean checkLoginAndGetBalance(final Context context) {
+    // Load checkBalance, use regexp
+    try {
+      String response = FishtextUtil.http(context, GET_BALANCE_URL);
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public final ConnectorSpec initSpec(final Context context) {
-		final String name = context.getString(R.string.connector_fishtext_name);
-		ConnectorSpec c = new ConnectorSpec(name);
-		c.setAuthor(// .
-		context.getString(R.string.connector_fishtext_author));
-		c.setAdUnitId(AD_UNITID);
-		c.setBalance(null);
-		c.setCapabilities(ConnectorSpec.CAPABILITIES_UPDATE
-				| ConnectorSpec.CAPABILITIES_SEND
-				| ConnectorSpec.CAPABILITIES_PREFS);
-		c.addSubConnector("fishtext", c.getName(),
-				SubConnectorSpec.FEATURE_NONE);
-		return c;
-	}
+      final Matcher matcher = LOGGED_IN_BALANCE.matcher(response);
+      if (matcher.find()) {
+        String balance = matcher.group(0);
+        balance = balance.replaceAll("&pound;", "\u00A3");
+        balance = balance.replaceAll("&euro;", "\u20AC");
+        Log.d(TAG, "Balance: " + balance);
+        this.getSpec(context).setBalance(balance);
+        return true;
+      } else {
+        Log.d(TAG, "Get balance did not have a valid balance.");
+        return false;
+      }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	public final ConnectorSpec updateSpec(final Context context,
-			final ConnectorSpec connectorSpec) {
-		final SharedPreferences p = PreferenceManager
-				.getDefaultSharedPreferences(context);
-		if (p.getBoolean(Preferences.PREFS_ENABLED, false)) {
-			if (p.getString(Preferences.PREFS_PASSWORD, "").length() > 0) {
-				connectorSpec.setReady();
-			} else {
-				connectorSpec.setStatus(ConnectorSpec.STATUS_ENABLED);
-			}
-		} else {
-			connectorSpec.setStatus(ConnectorSpec.STATUS_INACTIVE);
-		}
-		return connectorSpec;
-	}
+    } catch (IOException ioe) {
+      Log.d(TAG, "IOException when loading " + GET_BALANCE_URL);
+      return false;
+    }
+  }
 
-	/**
-	 * Login to fishtext.com.
-	 * 
-	 * @param context
-	 *            {@link Context}
-	 * @param command
-	 *            {@link ConnectorCommand}
-	 * @throws IOException
-	 *             IOException
-	 */
-	private void doLogin(final Context context, final ConnectorCommand command)
-			throws IOException {
-		final SharedPreferences p = PreferenceManager
-				.getDefaultSharedPreferences(context);
+  private void doLogin(final Context context, final ConnectorCommand command) {
+    final SharedPreferences p = PreferenceManager.getDefaultSharedPreferences(context);
 
-		ArrayList<BasicNameValuePair> postData = // .
-		new ArrayList<BasicNameValuePair>(NUM_VARS_LOGIN);
-		postData.add(new BasicNameValuePair("action", "login"));
-		String genlogin;
-		if (p.getBoolean(PREFS_LOGIN_WTIH_DEFAULT, false)) {
-			genlogin = command.getDefSender();
-		} else {
-			genlogin = Utils.getSender(context, command.getDefSender());
-		}
-		Log.d(TAG, "genlogin:  " + genlogin);
-		if (genlogin.startsWith("+")) {
-			genlogin = genlogin.substring(1);
-		} else if (genlogin.startsWith("00")) {
-			genlogin = genlogin.substring(2);
-		}
-		Log.d(TAG, "genlogin:  " + genlogin);
-		// postData.add(new BasicNameValuePair("mobile", userlogin));
-		postData.add(new BasicNameValuePair("mobile", genlogin));
-		Log.d(TAG, "genlogin:  " + genlogin);
-		postData.add(new BasicNameValuePair("password", p.getString(
-				Preferences.PREFS_PASSWORD, "")));
-		postData.add(new BasicNameValuePair("rememberSession", "yes"));
+    String login = p.getBoolean(PREFS_LOGIN_WTIH_DEFAULT, false) ? command.getDefSender() : Utils.getSender(context, command.getDefSender());
+    if (login.startsWith("+")) {
+      login = login.substring(1);
+    } else if (login.startsWith("00")) {
+      login = login.substring(2);
+    }
+    Log.d(TAG, "Login: " + login);
 
-		HttpResponse response = Utils.getHttpClient(URL_LOGIN, null, postData,
-				TARGET_AGENT, null, ENCODING, false);
-		postData = null;
-		int resp = response.getStatusLine().getStatusCode();
-		if (resp != HttpURLConnection.HTTP_OK) {
-			throw new WebSMSException(context, R.string.error_http, "" + resp);
-		}
-		final String htmlText = Utils.stream2str(response.getEntity()
-				.getContent());
-		Log.d(TAG, "----HTTP RESPONSE---");
-		Log.d(TAG, htmlText);
-		Log.d(TAG, "----HTTP RESPONSE---");
+    ArrayList<BasicNameValuePair> postData = PostDataBuilder.start().add("mobile", login)
+        .add("password", p.getString(Preferences.PREFS_PASSWORD, "")).add("rememberSession", "yes").add("_sp_errorJS", "0")
+        .add("_sp_tooltip_init", "1").data();
+    Log.d(TAG, "Post data (WARNING PASSWORD VISIBLE!): " + postData);
 
-		final int i = htmlText.indexOf(CHECK_BALANCE);
-		if (i < 0) {
-			Utils.clearCookies();
-			throw new WebSMSException(context, R.string.error_pw);
-		}
-		final int j = htmlText.indexOf("<p>", i);
-		if (j > 0) {
-			final int h = htmlText.indexOf("</p>", j);
-			if (h > 0) {
-				String b = htmlText.substring(j + 3, h);
-				b = b.replaceAll("&pound;", "\u00A3");
-				b = b.replaceAll("&euro;", "\u20AC");
-				Log.d(TAG, "balance: " + b);
-				this.getSpec(context).setBalance(b);
-			}
-		}
-	}
+    try {
+      String loginResponse = FishtextUtil.http(context, LOGIN_URL, postData, LOGIN_REFERRER);
 
-	/**
-	 * Prepare send.
-	 * 
-	 * @param context
-	 *            {@link Context}
-	 * @param command
-	 *            {@link ConnectorCommand}
-	 * @param throwOnFail
-	 *            throw exception on fail, if false a fresh session is loaded
-	 *            for retry
-	 * @return messageID
-	 * @throws IOException
-	 *             IOException
-	 */
-	private String getMessageID(final Context context,
-			final ConnectorCommand command, final boolean throwOnFail)
-			throws IOException {
-		if (Utils.getCookieCount() == 0) {
-			this.doLogin(context, command);
-		}
-		final HttpResponse response = Utils.getHttpClient(URL_PRESEND, null,
-				new ArrayList<BasicNameValuePair>(0), TARGET_AGENT, URL_LOGIN,
-				ENCODING, false);
-		final int resp = response.getStatusLine().getStatusCode();
-		if (resp != HttpURLConnection.HTTP_OK) {
-			throw new WebSMSException(context, R.string.error_http, "" + resp);
-		}
-		String htmlText = Utils.stream2str(response.getEntity().getContent());
-		// , STRIP_PRESEND_START, STRIP_PRESEND_END);
-		Log.d(TAG, "----HTTP RESPONSE---");
-		Log.d(TAG, htmlText);
-		Log.d(TAG, "----HTTP RESPONSE---");
-		final int i = htmlText.indexOf(CHECK_PRESEND);
-		if (i < 0) {
-			if (throwOnFail) {
-				Utils.clearCookies();
-				Log.e(TAG, "presend check failed, response following:");
-				Log.e(TAG, htmlText);
-				throw new WebSMSException(context, R.string.error_service);
-			} else {
-				// try again with fresh session
-				this.doLogin(context, command);
-				return this.getMessageID(context, command, true);
-			}
-		}
-		int j = htmlText.indexOf("name=", i);
-		if (j < 0) {
-			Log.e(TAG, "did not found \"name=\", response following:");
-			Log.e(TAG, htmlText);
-			throw new WebSMSException(context, R.string.error_service);
-		}
-		Log.d(TAG, "j = " + j);
-		htmlText = htmlText.substring(j + 6);
-		j = htmlText.indexOf("\"", 1);
-		if (j < 0) {
-			Log.e(TAG, "did not found \'\"\', response following:");
-			Log.e(TAG, htmlText);
-			throw new WebSMSException(context, R.string.error_service);
-		}
-		final String messageID = htmlText.substring(0, j);
-		htmlText = null;
-		Log.d(TAG, "message id: " + messageID);
-		return messageID;
-	}
+      if (!loginResponse.contains("Welcome back")) {
+        Utils.clearCookies();
+        Log.d(TAG, "Login did not succeed. Cleared cookies.");
+        throw new WebSMSException(context, R.string.error_pw);
+      }
 
-	/**
-	 * Send text.
-	 * 
-	 * @param context
-	 *            {@link Context}
-	 * @param command
-	 *            {@link ConnectorCommand}
-	 * @throws IOException
-	 *             IOException
-	 */
-	private void sendText(final Context context, final ConnectorCommand command)
-			throws IOException {
-		ArrayList<BasicNameValuePair> postData = // .
-		new ArrayList<BasicNameValuePair>(NUM_VARS_SEND);
-		postData.add(new BasicNameValuePair("action", "Send"));
-		postData.add(new BasicNameValuePair("SA", "0"));
-		postData.add(new BasicNameValuePair("DR", "1"));
-		postData.add(new BasicNameValuePair("ST", "1"));
-		postData.add(new BasicNameValuePair("RN", Utils.national2international(
-				command.getDefPrefix(),
-				Utils.getRecipientsNumber(command.getRecipients()[0]))
-				.substring(1)));
-		postData.add(new BasicNameValuePair(this.getMessageID(context, command,
-				false), command.getText()));
+    } catch (IOException ioe) {
+      Log.d(TAG, "An IOException occurred during login. " + ioe);
+      throw new WebSMSException(context, R.string.error_http);
+    }
+  }
 
-		HttpResponse response = Utils.getHttpClient(URL_SEND, null, postData,
-				TARGET_AGENT, URL_LOGIN, ENCODING, false);
-		postData = null;
-		final int resp = response.getStatusLine().getStatusCode();
-		if (resp != HttpURLConnection.HTTP_OK) {
-			throw new WebSMSException(context, R.string.error_http, "" + resp);
-		}
-		String htmlText = Utils.stream2str(response.getEntity().getContent());
-		Log.d(TAG, "----HTTP RESPONSE---");
-		Log.d(TAG, htmlText);
-		Log.d(TAG, "----HTTP RESPONSE---");
+  private void ensureLoggedIn(final Context context, final ConnectorCommand command, final boolean updateBalance) {
+    Log.d(TAG, "Ensuring logged in.");
+    if (!this.checkLoginAndGetBalance(context)) {
+      Log.d(TAG, "Not logged in, so doing login.");
+      this.doLogin(context, command);
+      // If we reach here without throwing an exception then we're logged in
+      Log.d(TAG, "Should now be logged in");
+      if (updateBalance) {
+        // The aim was to update the balance, so do that now we're logged in
+        this.checkLoginAndGetBalance(context);
+      }
+    }
+  }
 
-		final int i = htmlText.indexOf(CHECK_SENT);
-		if (i < 0) {
-			Log.e(TAG, "failed to send message, response following:");
-			Log.e(TAG, htmlText);
-			throw new WebSMSException(context, R.string.error_service);
-		}
-	}
+  private void doSend(final Context context, final ConnectorCommand command) {
+    // Prepare recipients
+    final String[] recipients = command.getRecipients();
+    final String[] recipientsProcessed = new String[recipients.length];
+    for (int i = 0; i < recipients.length; i++) {
+      String number = Utils.getRecipientsNumber(recipients[i]);
+      recipientsProcessed[i] = Utils.national2international(command.getDefPrefix(), number).substring(1);
+    }
+    final String recipientsProcessedString = FishtextUtil.appendWithSeparator(recipientsProcessed, ",");
+    Log.d(TAG, "Recipients string: " + recipientsProcessedString);
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	protected final void doUpdate(final Context context, final Intent intent) {
-		try {
-			this.doLogin(context, new ConnectorCommand(intent));
-		} catch (IOException e) {
-			Log.e(TAG, "login failed", e);
-			throw new WebSMSException(e.toString());
-		}
-	}
+    try {
+      final String sendMessagePage = FishtextUtil.http(context, SEND_MESSAGE_PAGE_URL);
+      final Matcher matcher = MESSAGE_ID.matcher(sendMessagePage);
+      if (!matcher.find()) {
+        Log.d(TAG, "Could not find message id in send message page.");
+        throw new WebSMSException(context, R.string.error_service);
+      }
+      final String messageId = matcher.group(1);
+      Log.d(TAG, "MessageID: " + messageId);
+      final String messageText = command.getText();
+      final ArrayList<BasicNameValuePair> postData = PostDataBuilder.start().add("action", "Send").add("SA", "0").add("DR", "1").add("ST", "1")
+          .add(messageId, messageText).add("RN", recipientsProcessedString).data();
+      Log.d(TAG, "Post data: " + postData);
+      final String sentResponseText = FishtextUtil.http(context, SEND_SMS_URL, postData);
+      // TODO more advanced processing of this response
+      if (!sentResponseText.contains("Your message was successfully sent to all recipients")) {
+        Log.d(TAG, "Not all (any?) of the messages sent correctly");
+        throw new WebSMSException(context, R.string.error_service);
+      }
+    } catch (IOException ioe) {
+      Log.d(TAG, "IOException occurred during send. " + ioe.toString());
+      throw new WebSMSException(context, R.string.error_http);
+    }
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	protected final void doSend(final Context context, final Intent intent) {
-		try {
-			this.sendText(context, new ConnectorCommand(intent));
-		} catch (IOException e) {
-			Log.e(TAG, "send failed", e);
-			throw new WebSMSException(e.toString());
-		}
-	}
+  }
+
+  @Override
+  protected final void doUpdate(final Context context, final Intent intent) {
+    final ConnectorCommand command = new ConnectorCommand(intent);
+    this.ensureLoggedIn(context, command, true);
+  }
+
+  @Override
+  protected final void doSend(final Context context, final Intent intent) {
+    final ConnectorCommand command = new ConnectorCommand(intent);
+    // Ensure logged in
+    this.ensureLoggedIn(context, command, false);
+    // Do actual send
+    this.doSend(context, command);
+    // Update balance
+    this.checkLoginAndGetBalance(context);
+  }
 }

@@ -1,0 +1,71 @@
+package com.fairmichael.fintan.websms.connector.fishtext;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.message.BasicNameValuePair;
+
+import android.content.Context;
+import de.ub0r.android.websms.connector.common.Log;
+import de.ub0r.android.websms.connector.common.Utils;
+import de.ub0r.android.websms.connector.common.WebSMSException;
+
+public class FishtextUtil {
+  public static String appendWithSeparator(final Collection<?> items, final String sep) {
+    return appendWithSeparator(items, sep, false);
+  }
+
+  public static String appendWithSeparator(final Collection<?> items, final String sep, final boolean separatorAtEnd) {
+    StringBuilder sb = new StringBuilder();
+    for (Object o : items) {
+      sb.append(o.toString());
+      sb.append(sep);
+    }
+    if (sb.length() > 0 && !separatorAtEnd) {
+      sb.delete(sb.length() - sep.length(), sb.length());
+    }
+    return sb.toString();
+  }
+
+  public static <T> String appendWithSeparator(final T[] items, final String sep, final boolean separatorAtEnd) {
+    return appendWithSeparator(Arrays.asList(items), sep, separatorAtEnd);
+  }
+
+  public static <T> String appendWithSeparator(final T[] items, final String sep) {
+    return appendWithSeparator(Arrays.asList(items), sep);
+  }
+
+  public static String http(final Context context, final String url, final ArrayList<BasicNameValuePair> postData, final String referrer)
+      throws IOException {
+
+    final HttpResponse response = Utils.getHttpClient(url, null, postData, ConnectorFishtext.USER_AGENT, referrer, ConnectorFishtext.ENCODING, false);
+    final int responseCode = response.getStatusLine().getStatusCode();
+    if (responseCode != HttpURLConnection.HTTP_OK) {
+      Log.d(ConnectorFishtext.TAG, "Received non-ok status code when attempting to load " + url);
+      throw new WebSMSException(context, R.string.error_http, "" + responseCode);
+    }
+
+    final String pageHtml = Utils.stream2str(response.getEntity().getContent());
+    Log.d(ConnectorFishtext.TAG, "----START HTTP RESPONSE for " + url + "---");
+    Log.d(ConnectorFishtext.TAG, pageHtml);
+    Log.d(ConnectorFishtext.TAG, "----END HTTP RESPONSE---");
+
+    return pageHtml;
+  }
+
+  public static String http(final Context context, final String url, final ArrayList<BasicNameValuePair> postData) throws IOException {
+    return http(context, url, postData, null);
+  }
+
+  public static String http(final Context context, final String url) throws IOException {
+    return http(context, url, (ArrayList<BasicNameValuePair>) null);
+  }
+
+  public static String http(final Context context, final String url, final String referrer) throws IOException {
+    return http(context, url, null, referrer);
+  }
+}
