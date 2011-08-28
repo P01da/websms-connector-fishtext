@@ -27,4 +27,12 @@
 	<string name="partner_fishtext_url">http://www.fishtext.com/</string>
 	<string name="use_default_for_login_">Login with default</string>
 	<string name="use_default_for_login_hint">Use default number for login.</string>
+	<string name="warn_fishtext_password_length">Your password has been shortened to the first 12 characters you entered, as Fishtext automatically truncates(shortens) passwords to the first 12 characters.</string>
+	<string name="successful_send_notification_fishtext_title">Success notification</string>
+	<string name="successful_send_notification_fishtext_summary">Show a notification on successful sends (shows the send cost)</string>
+	<string name="successful_send_notification_fishtext_notification">Successfully sent to all recipients at a cost of %1$s</string>
+	<string name="unsuccessful_send_all_fishtext">Your message did not send to any of the %1$d recipients. These invalid numbers were skipped: %2$s</string>
+	<string name="unsuccessful_send_some_fishtext">Your message did not send to all of the recipients. Successfully sent to %1$d recipients at a cost of %2$s. These invalid numbers were skipped: %3$s</string>
+	<string name="failed_send_fishtext">Send failed. %1$s</string>
+	<string name="unexpected_error_fishtext">Something unexpected went wrong.</string>
 </resources>

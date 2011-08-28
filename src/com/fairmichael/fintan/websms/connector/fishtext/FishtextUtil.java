@@ -10,6 +10,9 @@ import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.Toast;
 import de.ub0r.android.websms.connector.common.Log;
 import de.ub0r.android.websms.connector.common.Utils;
 import de.ub0r.android.websms.connector.common.WebSMSException;
@@ -67,5 +70,40 @@ public class FishtextUtil {
 
   public static String http(final Context context, final String url, final String referrer) throws IOException {
     return http(context, url, null, referrer);
+  }
+
+  /**
+   * Fix html currency symbols to the unicode equivalent
+   * 
+   * @param string
+   * @return
+   */
+  public static String currencyFix(final String string) {
+    return string.replaceAll("&pound;", "\u00A3").replaceAll("&euro;", "\u20AC");
+  }
+
+  /**
+   * Slightly complicated method of showing a toast notification after the
+   * current thread has died
+   * 
+   * @param context
+   * @param message
+   * @param length
+   */
+  public static void toastNotifyOnMain(final Context context, final String message, final int length) {
+    final Handler handler = new Handler(Looper.getMainLooper());
+    final Runnable showNotification = new Runnable() {
+      public void run() {
+        Log.d(ConnectorFishtext.TAG, "Actually notifying on successful send: " + message);
+        Toast.makeText(context.getApplicationContext(), message, length).show();
+      }
+    };
+
+    new Thread() {
+      @Override
+      public void run() {
+        handler.post(showNotification);
+      }
+    }.start();
   }
 }

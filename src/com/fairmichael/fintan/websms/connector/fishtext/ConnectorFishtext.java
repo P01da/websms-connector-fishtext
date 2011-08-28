@@ -20,6 +20,8 @@ package com.fairmichael.fintan.websms.connector.fishtext;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,6 +31,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
+import android.widget.Toast;
 import de.ub0r.android.websms.connector.common.Connector;
 import de.ub0r.android.websms.connector.common.ConnectorCommand;
 import de.ub0r.android.websms.connector.common.ConnectorSpec;
@@ -54,7 +57,7 @@ public class ConnectorFishtext extends Connector {
   private static final String PREFS_LOGIN_WTIH_DEFAULT = "login_with_default";
 
   /** Login URL. */
-  private static final String LOGIN_URL = "https://www.fishtext.com/cgi-bin/account";
+  private static final String LOGIN_URL = "https://www.fishtext.com/cgi-bin/mobi/account";
   /** Login Referrer */
   private static final String LOGIN_REFERRER = "https://www.fishtext.com/cgi-bin/mobi/account";
   /** Get Balance URL */
@@ -71,6 +74,9 @@ public class ConnectorFishtext extends Connector {
   private static final Pattern LOGGED_IN_BALANCE = Pattern.compile("^(.*?)(\\d{1,}\\.\\d{1,})");
   /** Pattern for extracting the message id from the send message page */
   private static final Pattern MESSAGE_ID = Pattern.compile("<textarea class=\"messagelargeinput\" name=\"(\\w+)\" id=\"message\"");
+
+  /** Preference identifier for notifying on successful send */
+  private static final String SUCCESSFUL_SEND_NOTIFICATION_PREFERENCE_ID = "successful_send_notification_fishtext";
 
   @Override
   public final ConnectorSpec initSpec(final Context context) {
@@ -113,8 +119,7 @@ public class ConnectorFishtext extends Connector {
       final Matcher matcher = LOGGED_IN_BALANCE.matcher(response);
       if (matcher.find()) {
         String balance = matcher.group(0);
-        balance = balance.replaceAll("&pound;", "\u00A3");
-        balance = balance.replaceAll("&euro;", "\u20AC");
+        balance = FishtextUtil.currencyFix(balance);
         Log.d(TAG, "Balance: " + balance);
         this.getSpec(context).setBalance(balance);
         return true;
@@ -131,6 +136,9 @@ public class ConnectorFishtext extends Connector {
 
   private void doLogin(final Context context, final ConnectorCommand command) {
     final SharedPreferences p = PreferenceManager.getDefaultSharedPreferences(context);
+
+    Utils.clearCookies();
+    Log.d(TAG, "Cleared cookies as we're about to login");
 
     String login = p.getBoolean(PREFS_LOGIN_WTIH_DEFAULT, false) ? command.getDefSender() : Utils.getSender(context, command.getDefSender());
     if (login.startsWith("+")) {
@@ -178,12 +186,18 @@ public class ConnectorFishtext extends Connector {
     // Prepare recipients
     final String[] recipients = command.getRecipients();
     final String[] recipientsProcessed = new String[recipients.length];
+    // Map from processed recipient to original
+    final Map<String, String> recipientMap = new HashMap<String, String>();
+
     for (int i = 0; i < recipients.length; i++) {
-      String number = Utils.getRecipientsNumber(recipients[i]);
-      recipientsProcessed[i] = Utils.national2international(command.getDefPrefix(), number).substring(1);
+      final String number = Utils.getRecipientsNumber(recipients[i]);
+      final String recipientProcessed = Utils.national2international(command.getDefPrefix(), number).substring(1);
+      recipientMap.put(recipientProcessed, recipients[i]);
+      recipientsProcessed[i] = recipientProcessed;
     }
-    final String recipientsProcessedString = FishtextUtil.appendWithSeparator(recipientsProcessed, ",");
+    final String recipientsProcessedString = FishtextUtil.appendWithSeparator(recipientMap.keySet(), ",");
     Log.d(TAG, "Recipients string: " + recipientsProcessedString);
+    Log.d(TAG, "Recipients map: " + recipientsProcessedString);
 
     try {
       final String sendMessagePage = FishtextUtil.http(context, SEND_MESSAGE_PAGE_URL);
@@ -199,16 +213,98 @@ public class ConnectorFishtext extends Connector {
           .add(messageId, messageText).add("RN", recipientsProcessedString).data();
       Log.d(TAG, "Post data: " + postData);
       final String sentResponseText = FishtextUtil.http(context, SEND_SMS_URL, postData);
-      // TODO more advanced processing of this response
-      if (!sentResponseText.contains("Your message was successfully sent to all recipients")) {
-        Log.d(TAG, "Not all (any?) of the messages sent correctly");
-        throw new WebSMSException(context, R.string.error_service);
-      }
+      this.examineSendResponse(context, sentResponseText, recipientMap);
+
     } catch (IOException ioe) {
       Log.d(TAG, "IOException occurred during send. " + ioe.toString());
       throw new WebSMSException(context, R.string.error_http);
     }
+  }
 
+  private static Pattern COST_PATTERN = Pattern.compile("at a cost of (.*?)(\\d{1,}\\.\\d{1,})");
+  private static String COST_FREE = "free";
+  private static String COST_UNKNOWN = "unknown";
+  private static Pattern INVALID_NUMBERS_PATTERN = Pattern.compile("invalid number\\(s\\) (.*?) skipped");
+
+  private void examineSendResponse(final Context context, final String response, final Map<String, String> recipientMap) {
+    if (response.contains("Message sent")) {
+      this.examineSuccessSendResponse(context, response, recipientMap);
+    } else if (response.contains("Send failed")) {
+      this.examineFailedSendResponse(context, response, recipientMap);
+    } else {
+      Log.d(TAG, "Send response didn't have Message Sent or Send Failed in it!");
+      throw new WebSMSException(context, R.string.unexpected_error_fishtext);
+    }
+  }
+
+  private static final Pattern SEND_FAILED_MESSAGE_PATTERN = Pattern.compile("<p>(.*)</p>");
+
+  private void examineFailedSendResponse(final Context context, final String response, final Map<String, String> recipientMap) {
+    Matcher matcher = SEND_FAILED_MESSAGE_PATTERN.matcher(response);
+    if (matcher.find()) {
+      throw new WebSMSException(context.getString(R.string.failed_send_fishtext, matcher.group(1)));
+    } else {
+      throw new WebSMSException(context.getString(R.string.failed_send_fishtext, ""));
+    }
+  }
+
+  private void examineSuccessSendResponse(final Context context, final String response, final Map<String, String> recipientMap) {
+    boolean sentToAll = response.contains("Your message was successfully sent to all recipients");
+    String cost, costUnit;
+    boolean free = response.contains("sent free") || response.contains(", free.");
+    if (free) {
+      cost = COST_FREE;
+    }
+    Matcher matcher = COST_PATTERN.matcher(response);
+    if (matcher.find()) {
+      cost = matcher.group(2);
+      costUnit = FishtextUtil.currencyFix(matcher.group(1));
+    } else {
+      cost = COST_UNKNOWN;
+      costUnit = "";
+    }
+
+    if (sentToAll) {
+      // Sent to all successfully, just notify with the price
+      final SharedPreferences p = PreferenceManager.getDefaultSharedPreferences(context);
+      final boolean notifySend = p.getBoolean(SUCCESSFUL_SEND_NOTIFICATION_PREFERENCE_ID, true);
+      if (notifySend) {
+        final String notification = context.getString(R.string.successful_send_notification_fishtext_notification, costUnit + cost);
+        Log.d(TAG, "Notifying on successful send: " + notification);
+        FishtextUtil.toastNotifyOnMain(context, notification, Toast.LENGTH_SHORT);
+      } else {
+        Log.d(TAG, "Not notifying on successful send");
+      }
+    } else {
+      // Process invalids
+      String invalids = "";
+      int invalidCount = 0;
+      Matcher invalidMatcher = INVALID_NUMBERS_PATTERN.matcher(response);
+      if (invalidMatcher.find()) {
+        Log.d(TAG, "Matched invalids " + invalidMatcher.group() + " - " + invalidMatcher.group(1));
+        invalids = invalidMatcher.group(1);
+
+        String[] parts = invalids.split(",");
+        for (int i = 0; i < parts.length; i++) {
+          parts[i] = recipientMap.get(parts[i].trim());
+        }
+
+        invalids = FishtextUtil.appendWithSeparator(parts, ", ");
+        invalidCount = parts.length;
+      }
+      int successfulCount = recipientMap.size() - invalidCount;
+
+      if (successfulCount > 0) {
+        // Sent to some
+        String errorMessage = context.getString(R.string.unsuccessful_send_some_fishtext, successfulCount, costUnit + cost, invalids);
+        throw new WebSMSException(errorMessage);
+      } else {
+        // Sent to none
+        String errorMessage = context.getString(R.string.unsuccessful_send_all_fishtext, recipientMap.size(), invalids);
+        throw new WebSMSException(errorMessage);
+      }
+
+    }
   }
 
   @Override

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Felix Bechstein
+ * Copyright (C) 2010-2011 Felix Bechstein, Fintan Fairmichael
  * 
  * This file is part of WebSMS.
  * 
@@ -18,26 +18,44 @@
  */
 package com.fairmichael.fintan.websms.connector.fishtext;
 
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
 import android.os.Bundle;
 import android.preference.PreferenceActivity;
+import android.preference.PreferenceManager;
+import android.widget.Toast;
 
 /**
  * Preferences.
  * 
  * @author flx
  */
-public final class Preferences extends PreferenceActivity {
-	/** Preference key: enabled. */
-	static final String PREFS_ENABLED = "enable_fishtext";
-	/** Preference's name: user's password. */
-	static final String PREFS_PASSWORD = "password_fishtext";
+public final class Preferences extends PreferenceActivity implements OnSharedPreferenceChangeListener {
+  /** Preference key: enabled. */
+  static final String PREFS_ENABLED = "enable_fishtext";
+  /** Preference's name: user's password. */
+  static final String PREFS_PASSWORD = "password_fishtext";
 
-	/**
-	 * {@inheritDoc}
-	 */
-	@Override
-	protected void onCreate(final Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		this.addPreferencesFromResource(R.xml.connector_fishtext_prefs);
-	}
+  @Override
+  protected void onCreate(final Bundle savedInstanceState) {
+    super.onCreate(savedInstanceState);
+    this.addPreferencesFromResource(R.xml.connector_fishtext_prefs);
+    SharedPreferences sp = PreferenceManager.getDefaultSharedPreferences(this);
+    sp.registerOnSharedPreferenceChangeListener(this);
+  }
+
+  private static final int MAX_PASSWORD_LENGTH = 12;
+
+  @Override
+  public void onSharedPreferenceChanged(final SharedPreferences sp, final String key) {
+    if (key.equals(PREFS_PASSWORD)) {
+      String value = sp.getString(PREFS_PASSWORD, null);
+      if (value.length() > MAX_PASSWORD_LENGTH) {
+        sp.edit().putString(PREFS_PASSWORD, value.substring(0, MAX_PASSWORD_LENGTH)).commit();
+        Context context = this.getApplicationContext();
+        Toast.makeText(context, R.string.warn_fishtext_password_length, Toast.LENGTH_LONG).show();
+      }
+    }
+  }
 }
