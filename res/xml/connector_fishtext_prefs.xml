@@ -28,7 +28,8 @@
 	<CheckBoxPreference android:key="successful_send_notification_fishtext"
 		android:defaultValue="true" 
 		android:title="@string/successful_send_notification_fishtext_title"
-		android:summary="@string/successful_send_notification_fishtext_summary" />
+		android:summary="@string/successful_send_notification_fishtext_summary"
+		android:dependency="enable_fishtext" />
 	<CheckBoxPreference android:key="use_default_sender"
 		android:defaultValue="true" 
 		android:title="@string/use_derfault_sender_"
