@@ -50,7 +50,7 @@ public class ConnectorFishtext extends Connector {
   /** Logging tag. */
   static final String TAG = "fishtext";
   /** Google's ad unit id. */
-  private static final String AD_UNIT_ID = "a14dd50c927d383";
+  private static final String AD_UNIT_ID = "a14e5aeb42ac986";
   /** Useragent for http communication. */
   static final String USER_AGENT = "Mozilla/5.0 (Windows; U; " + "Windows NT 5.1; ko; rv:1.9.2.3) Gecko/20100401 Firefox/3.6.3 (.NET CLR 3.5.30729)";
   /** Preference name for using default number as login. */
@@ -78,12 +78,15 @@ public class ConnectorFishtext extends Connector {
   /** Preference identifier for notifying on successful send */
   private static final String SUCCESSFUL_SEND_NOTIFICATION_PREFERENCE_ID = "successful_send_notification_fishtext";
 
+  private static final int MAXIMUM_MESSAGE_LENGTH = 460;
+
   @Override
   public final ConnectorSpec initSpec(final Context context) {
     final String name = context.getString(R.string.connector_fishtext_name);
     ConnectorSpec c = new ConnectorSpec(name);
     c.setAuthor(context.getString(R.string.connector_fishtext_author));
     c.setAdUnitId(AD_UNIT_ID);
+    c.setLimitLength(MAXIMUM_MESSAGE_LENGTH);
     c.setBalance(null);
     c.setCapabilities(ConnectorSpec.CAPABILITIES_UPDATE | ConnectorSpec.CAPABILITIES_SEND | ConnectorSpec.CAPABILITIES_PREFS);
     c.addSubConnector("fishtext", c.getName(), SubConnectorSpec.FEATURE_MULTIRECIPIENTS);
@@ -151,7 +154,7 @@ public class ConnectorFishtext extends Connector {
     ArrayList<BasicNameValuePair> postData = PostDataBuilder.start().add("mobile", login)
         .add("password", p.getString(Preferences.PREFS_PASSWORD, "")).add("rememberSession", "yes").add("_sp_errorJS", "0")
         .add("_sp_tooltip_init", "1").data();
-    Log.d(TAG, "Post data (WARNING PASSWORD VISIBLE!): " + postData);
+    // Log.d(TAG, "Post data (WARNING PASSWORD VISIBLE!): " + postData);
 
     try {
       String loginResponse = FishtextUtil.http(context, LOGIN_URL, postData, LOGIN_REFERRER);
