@@ -30,6 +30,13 @@
 		android:title="@string/successful_send_notification_fishtext_title"
 		android:summary="@string/successful_send_notification_fishtext_summary"
 		android:dependency="enable_fishtext" />
+	<ListPreference android:key="send_free_fishtext"
+		android:title="@string/send_for_free_title"
+		android:defaultValue="not_set"
+		android:summary="@string/send_for_free_default_summary"
+		android:entries="@array/send_for_free_choices"
+		android:entryValues="@array/send_for_free_values"
+		android:dependency="enable_fishtext" />
 	<CheckBoxPreference android:key="use_default_sender"
 		android:defaultValue="true" 
 		android:title="@string/use_derfault_sender_"

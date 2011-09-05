@@ -18,7 +18,7 @@
 	-->
 <resources>
 	<string name="app_name">WebSMS Connector: fishtext</string>
-	<string name="app_version">1.5.0</string>
+	<string name="app_version">1.5.1</string>
 	<string name="connector_fishtext_author">Fintan Fairmichael</string>
 	<string name="connector_fishtext_name">fishtext</string>
 	<string name="enable_fishtext">Enable fishtext</string>
@@ -35,4 +35,18 @@
 	<string name="unsuccessful_send_some_fishtext">Your message did not send to all of the recipients. Successfully sent to %1$d recipients at a cost of %2$s. These invalid numbers were skipped: %3$s</string>
 	<string name="failed_send_fishtext">Send failed. %1$s</string>
 	<string name="unexpected_error_fishtext">Something unexpected went wrong.</string>
+	
+	<string name="send_for_free_title">Attempt send for free</string>
+	<string name="send_for_free_default_summary">Not set, will use what is set on fishtext.com</string>
+	<string-array name="send_for_free_choices">
+		<item>Not set, will use what is set on fishtext.com</item>
+		<item>Attempt to send for free first</item>
+		<item>Do not attempt to send for free</item>
+	</string-array>
+	<string-array name="send_for_free_values">
+		<item>-1</item>
+		<item>1</item>
+		<item>0</item>
+	</string-array>
+	
 </resources>

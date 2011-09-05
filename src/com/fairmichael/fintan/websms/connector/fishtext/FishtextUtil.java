@@ -5,6 +5,7 @@ import java.net.HttpURLConnection;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.message.BasicNameValuePair;
@@ -105,5 +106,19 @@ public class FishtextUtil {
         handler.post(showNotification);
       }
     }.start();
+  }
+
+  /**
+   * Helper for building parameter arrays.
+   * 
+   * @param map
+   * @return
+   */
+  public static ArrayList<BasicNameValuePair> parametersMapToParametersArray(final Map<String, String> map) {
+    final ArrayList<BasicNameValuePair> paramArray = new ArrayList<BasicNameValuePair>(map.size());
+    for (Map.Entry<String, String> entry : map.entrySet()) {
+      paramArray.add(new BasicNameValuePair(entry.getKey(), entry.getValue()));
+    }
+    return paramArray;
   }
 }
