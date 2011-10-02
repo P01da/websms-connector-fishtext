@@ -203,13 +203,24 @@ public class ConnectorFishtext extends Connector {
 
     for (int i = 0; i < recipients.length; i++) {
       final String number = Utils.getRecipientsNumber(recipients[i]);
-      final String recipientProcessed = Utils.national2international(command.getDefPrefix(), number).substring(1);
+      String recipientProcessed = Utils.national2international(command.getDefPrefix(), number);
+      if (recipientProcessed.charAt(0) == '+') {
+        // To be on the safe side, only do this if we're certain the first
+        // character is a '+'
+        recipientProcessed = recipientProcessed.substring(1);
+      }
       recipientMap.put(recipientProcessed, recipients[i]);
       recipientsProcessed[i] = recipientProcessed;
+      Log.d(TAG, "Input: " + recipients[i] + ", number: " + number + ", processed: " + recipientProcessed);
     }
     final String recipientsProcessedString = FishtextUtil.appendWithSeparator(recipientMap.keySet(), ",");
     Log.d(TAG, "Recipients string: " + recipientsProcessedString);
-    Log.d(TAG, "Recipients map: " + recipientsProcessedString);
+    Log.d(TAG, "Recipients map: " + recipientMap);
+
+    // if (true) {
+    // Log.d(TAG, "Not sending for testing!");
+    // return;
+    // }
 
     try {
       final String sendMessagePage = FishtextUtil.http(context, SEND_MESSAGE_PAGE_URL);
