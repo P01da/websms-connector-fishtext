@@ -18,7 +18,7 @@
 	-->
 <resources>
 	<string name="app_name">WebSMS Connector: fishtext</string>
-	<string name="app_version">1.5.1</string>
+	<string name="app_version">1.5.2</string>
 	<string name="connector_fishtext_author">Fintan Fairmichael</string>
 	<string name="connector_fishtext_name">fishtext</string>
 	<string name="enable_fishtext">Enable fishtext</string>

@@ -35,6 +35,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.preference.PreferenceManager;
 import android.widget.Toast;
+import de.ub0r.android.websms.connector.common.BasicSMSLengthCalculator;
 import de.ub0r.android.websms.connector.common.Connector;
 import de.ub0r.android.websms.connector.common.ConnectorCommand;
 import de.ub0r.android.websms.connector.common.ConnectorSpec;
@@ -92,8 +93,7 @@ public class ConnectorFishtext extends Connector {
     c.setAuthor(context.getString(R.string.connector_fishtext_author));
     c.setAdUnitId(AD_UNIT_ID);
     c.setLimitLength(MAXIMUM_MESSAGE_LENGTH);
-    // c.setSMSLengthCalculator(new BasicSMSLengthCalculator(new int[] { 160,
-    // 146, 153 })); //TODO commented out until websms main app is updated
+    c.setSMSLengthCalculator(new BasicSMSLengthCalculator(new int[] { 160, 146, 153 }));
     c.setBalance(null);
     c.setCapabilities(ConnectorSpec.CAPABILITIES_UPDATE | ConnectorSpec.CAPABILITIES_SEND | ConnectorSpec.CAPABILITIES_PREFS);
     c.addSubConnector("fishtext", c.getName(), SubConnectorSpec.FEATURE_MULTIRECIPIENTS);
