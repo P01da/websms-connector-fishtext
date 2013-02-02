@@ -16,9 +16,12 @@ import android.os.Looper;
 import android.widget.Toast;
 import de.ub0r.android.websms.connector.common.Log;
 import de.ub0r.android.websms.connector.common.Utils;
+import de.ub0r.android.websms.connector.common.Utils.HttpOptions;
 import de.ub0r.android.websms.connector.common.WebSMSException;
 
 public class FishtextUtil {
+  private static String[] FISHTEXT_SSL_FINGERPRINTS = { "5F:24:86:FC:CD:00:2A:92:65:47:50:91:2A:AE:D7:6C:D2:61:C4:83" };
+
   public static String appendWithSeparator(final Collection<?> items, final String sep) {
     return appendWithSeparator(items, sep, false);
   }
@@ -43,10 +46,16 @@ public class FishtextUtil {
     return appendWithSeparator(Arrays.asList(items), sep);
   }
 
-  public static String http(final Context context, final String url, final ArrayList<BasicNameValuePair> postData, final String referrer)
-      throws IOException {
+  public static String http(final Context context, final String url, final ArrayList<BasicNameValuePair> postData, final String referrer) throws IOException {
 
-    final HttpResponse response = Utils.getHttpClient(url, null, postData, ConnectorFishtext.USER_AGENT, referrer, ConnectorFishtext.ENCODING, false);
+    final HttpOptions options = new HttpOptions(ConnectorFishtext.ENCODING);
+    options.url = url;
+    options.userAgent = ConnectorFishtext.USER_AGENT;
+    options.referer = referrer;
+    options.addFormParameter(postData);
+    options.knownFingerprints = FISHTEXT_SSL_FINGERPRINTS;
+    final HttpResponse response = Utils.getHttpClient(options);
+
     final int responseCode = response.getStatusLine().getStatusCode();
     if (responseCode != HttpURLConnection.HTTP_OK) {
       Log.d(ConnectorFishtext.TAG, "Received non-ok status code when attempting to load " + url);
